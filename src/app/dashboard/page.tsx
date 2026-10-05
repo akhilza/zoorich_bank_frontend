@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { ApiClient } from '@/lib/api';
 import {
@@ -9,6 +9,7 @@ import {
   PlusCircle,
   ArrowDownLeft,
   ArrowUpRight,
+  ArrowLeft,
   LogOut,
   RefreshCw,
   Copy,
@@ -40,6 +41,7 @@ import {
   ShieldAlert,
   Sparkles,
   ChevronRight,
+  ChevronDown,
   Receipt,
   X,
   Snowflake,
@@ -136,6 +138,25 @@ export default function DashboardPage() {
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
+
+  // User Profile Dropdown Menu
+  const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+  const userMenuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (userMenuRef.current && !userMenuRef.current.contains(event.target as Node)) {
+        setIsUserMenuOpen(false);
+      }
+    };
+    if (isUserMenuOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isUserMenuOpen]);
+
   const [searchTerm, setSearchTerm] = useState('');
   const [txFilter, setTxFilter] = useState<'ALL' | 'SENT' | 'RECEIVED' | 'DEPOSIT' | 'WITHDRAWAL'>('ALL');
 
@@ -261,7 +282,8 @@ export default function DashboardPage() {
         }
         return null;
       });
-      setTransactions(txRes.data.transactions || []);
+      const txList: Transaction[] = txRes.transactions || txRes.data?.transactions || txRes.data || [];
+      setTransactions(txList);
     } catch (err: any) {
       if (err.message && (err.message.includes('token') || err.message.includes('401'))) {
         localStorage.removeItem('zoorich_token');
@@ -706,11 +728,15 @@ export default function DashboardPage() {
 
   // Filtered transactions
   const filteredTransactions = transactions.filter((tx) => {
+    const term = (searchTerm || '').trim().toLowerCase();
     const matchesSearch =
-      tx.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      tx.reference?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      tx.destinationAccount?.user?.firstName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      tx.sourceAccount?.user?.firstName?.toLowerCase().includes(searchTerm.toLowerCase());
+      !term ||
+      Boolean(
+        tx.description?.toLowerCase().includes(term) ||
+        tx.reference?.toLowerCase().includes(term) ||
+        tx.destinationAccount?.user?.firstName?.toLowerCase().includes(term) ||
+        tx.sourceAccount?.user?.firstName?.toLowerCase().includes(term)
+      );
 
     if (!matchesSearch) return false;
 
@@ -763,72 +789,201 @@ export default function DashboardPage() {
           <NovaLogo size="sm" subtitle="Private Banking" />
         </div>
 
-        {/* User bar & Actions */}
+        {/* User Dropdown Menu & Actions */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
-          <button
-            onClick={() => setActiveTab('profile')}
-            className="header-user-pill"
-            style={{
-              background: activeTab === 'profile' ? 'rgba(56, 189, 248, 0.15)' : '#141417',
-              border: activeTab === 'profile' ? '1px solid #38bdf8' : '1px solid #27272a',
-              borderRadius: '8px',
-              padding: '6px 12px',
-              fontSize: '0.85rem',
-              color: '#ffffff',
-              fontWeight: 600,
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
-              cursor: 'pointer',
-              transition: 'all 0.15s ease',
-            }}
-            title="Click to view & edit Profile"
-          >
-            <div
+          <div ref={userMenuRef} style={{ position: 'relative' }}>
+            <button
+              onClick={() => setIsUserMenuOpen((prev) => !prev)}
+              className="header-user-pill"
               style={{
-                width: '26px',
-                height: '26px',
-                borderRadius: '50%',
-                background: 'linear-gradient(135deg, #38bdf8 0%, #2563eb 100%)',
-                boxShadow: '0 2px 8px rgba(37, 99, 235, 0.4)',
+                background: isUserMenuOpen ? 'rgba(56, 189, 248, 0.15)' : '#141417',
+                border: isUserMenuOpen ? '1px solid #38bdf8' : '1px solid #27272a',
+                borderRadius: '8px',
+                padding: '6px 12px',
+                fontSize: '0.85rem',
                 color: '#ffffff',
-                fontSize: '0.75rem',
-                fontWeight: 800,
+                fontWeight: 600,
                 display: 'flex',
                 alignItems: 'center',
-                justifyContent: 'center',
-                flexShrink: 0,
+                gap: '8px',
+                cursor: 'pointer',
+                transition: 'all 0.15s ease',
               }}
+              title="Click to view profile & account options"
             >
-              {user?.firstName?.[0]}
-              {user?.lastName?.[0]}
-            </div>
-            <span className="header-user-fullname">
-              {user?.firstName} {user?.lastName}
-            </span>
-            <span
-              style={{
-                fontSize: '0.7rem',
-                backgroundColor: activeTab === 'profile' ? '#38bdf8' : 'rgba(255, 255, 255, 0.1)',
-                color: activeTab === 'profile' ? '#000000' : '#a1a1aa',
-                padding: '2px 6px',
-                borderRadius: '4px',
-                fontWeight: 700,
-              }}
-            >
-              PROFILE
-            </span>
-          </button>
+              <div
+                style={{
+                  width: '26px',
+                  height: '26px',
+                  borderRadius: '50%',
+                  background: 'linear-gradient(135deg, #38bdf8 0%, #2563eb 100%)',
+                  boxShadow: '0 2px 8px rgba(37, 99, 235, 0.4)',
+                  color: '#ffffff',
+                  fontSize: '0.75rem',
+                  fontWeight: 800,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  flexShrink: 0,
+                }}
+              >
+                {user?.firstName?.[0]}
+                {user?.lastName?.[0]}
+              </div>
+              <span className="header-user-fullname">
+                {user?.firstName} {user?.lastName}
+              </span>
+              <ChevronDown
+                size={14}
+                style={{
+                  color: isUserMenuOpen ? '#38bdf8' : '#a1a1aa',
+                  transform: isUserMenuOpen ? 'rotate(180deg)' : 'rotate(0deg)',
+                  transition: 'transform 0.2s ease',
+                  marginLeft: '2px',
+                }}
+              />
+            </button>
 
-          <button
-            onClick={handleLogout}
-            className="btn-secondary header-signout-btn"
-            style={{ padding: '8px 12px', fontSize: '0.85rem', flexShrink: 0 }}
-            title="Sign Out"
-          >
-            <LogOut size={16} />
-            <span className="header-signout-text">Sign Out</span>
-          </button>
+            {/* Dropdown Menu */}
+            {isUserMenuOpen && (
+              <div
+                style={{
+                  position: 'absolute',
+                  top: 'calc(100% + 8px)',
+                  right: 0,
+                  width: '240px',
+                  backgroundColor: '#0d0d12',
+                  border: '1px solid #27272f',
+                  borderRadius: '12px',
+                  boxShadow: '0 18px 48px rgba(0, 0, 0, 0.85)',
+                  padding: '8px',
+                  zIndex: 1000,
+                  animation: 'fadeIn 0.15s ease-out',
+                }}
+              >
+                {/* User Header */}
+                <div style={{ padding: '10px 12px', borderBottom: '1px solid #1f1f26', marginBottom: '6px' }}>
+                  <div style={{ fontWeight: 700, color: '#ffffff', fontSize: '0.88rem' }}>
+                    {user?.firstName} {user?.lastName}
+                  </div>
+                  <div style={{ color: '#71717a', fontSize: '0.78rem', marginTop: '2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {user?.email}
+                  </div>
+                  <div style={{ marginTop: '6px' }}>
+                    <span
+                      style={{
+                        fontSize: '0.66rem',
+                        background: 'rgba(16, 185, 129, 0.15)',
+                        color: '#34d399',
+                        padding: '2px 6px',
+                        borderRadius: '4px',
+                        fontWeight: 700,
+                        letterSpacing: '0.5px',
+                        display: 'inline-block',
+                      }}
+                    >
+                      ACTIVE CUSTOMER
+                    </span>
+                  </div>
+                </div>
+
+                {/* Profile Option */}
+                <button
+                  onClick={() => {
+                    setActiveTab('profile');
+                    setIsUserMenuOpen(false);
+                  }}
+                  style={{
+                    width: '100%',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '10px',
+                    padding: '9px 12px',
+                    borderRadius: '8px',
+                    border: 'none',
+                    background: activeTab === 'profile' ? '#181822' : 'transparent',
+                    color: activeTab === 'profile' ? '#38bdf8' : '#e4e4e7',
+                    fontSize: '0.84rem',
+                    fontWeight: 500,
+                    cursor: 'pointer',
+                    textAlign: 'left',
+                    transition: 'background 0.15s',
+                  }}
+                  onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#181822')}
+                  onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = activeTab === 'profile' ? '#181822' : 'transparent')}
+                >
+                  <UserCheck size={16} color="#38bdf8" />
+                  <span>My Profile & KYC</span>
+                </button>
+
+                {/* Security Option */}
+                <button
+                  onClick={() => {
+                    setActiveTab('security');
+                    setIsUserMenuOpen(false);
+                  }}
+                  style={{
+                    width: '100%',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '10px',
+                    padding: '9px 12px',
+                    borderRadius: '8px',
+                    border: 'none',
+                    background: activeTab === 'security' ? '#181822' : 'transparent',
+                    color: activeTab === 'security' ? '#38bdf8' : '#e4e4e7',
+                    fontSize: '0.84rem',
+                    fontWeight: 500,
+                    cursor: 'pointer',
+                    textAlign: 'left',
+                    transition: 'background 0.15s',
+                  }}
+                  onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#181822')}
+                  onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = activeTab === 'security' ? '#181822' : 'transparent')}
+                >
+                  <KeyRound size={16} color="#facc15" />
+                  <span>Security & PIN</span>
+                </button>
+
+                <div style={{ height: '1px', background: '#1f1f26', margin: '6px 0' }} />
+
+                {/* Sign Out Button */}
+                <button
+                  onClick={() => {
+                    setIsUserMenuOpen(false);
+                    handleLogout();
+                  }}
+                  style={{
+                    width: '100%',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '10px',
+                    padding: '9px 12px',
+                    borderRadius: '8px',
+                    border: 'none',
+                    background: 'transparent',
+                    color: '#f87171',
+                    fontSize: '0.84rem',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    textAlign: 'left',
+                    transition: 'background 0.15s, color 0.15s',
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.backgroundColor = 'rgba(239, 68, 68, 0.15)';
+                    e.currentTarget.style.color = '#ef4444';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.backgroundColor = 'transparent';
+                    e.currentTarget.style.color = '#f87171';
+                  }}
+                >
+                  <LogOut size={16} />
+                  <span>Sign Out</span>
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       </header>
 
@@ -867,65 +1022,122 @@ export default function DashboardPage() {
             </span>
           </div>
         )}
-        {/* Navigation Tabs Bar */}
-        <div className="bank-tabs-nav">
-          <button
-            onClick={() => setActiveTab('overview')}
-            className={`bank-tab-btn ${activeTab === 'overview' ? 'active' : ''}`}
+        {/* Modern Icon Gallery Navigation Grid (Desktop View Only - Hidden on Mobile) */}
+        {!appModeSimulated && (
+          <div
+            className="bank-icon-gallery desktop-only-gallery"
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(110px, 1fr))',
+              gap: '10px',
+              marginBottom: '26px',
+              padding: '14px',
+              background: 'linear-gradient(180deg, #101015 0%, #0c0c10 100%)',
+              border: '1px solid #202028',
+              borderRadius: '16px',
+              boxShadow: '0 8px 30px rgba(0, 0, 0, 0.45)',
+            }}
           >
-            <Building size={16} />
-            <span>Accounts & Overview</span>
-          </button>
-          <button
-            onClick={() => setActiveTab('cards')}
-            className={`bank-tab-btn ${activeTab === 'cards' ? 'active' : ''}`}
-          >
-            <CreditCard size={16} />
-            <span>Cards</span>
-          </button>
-          <button
-            onClick={() => setActiveTab('transfers')}
-            className={`bank-tab-btn ${activeTab === 'transfers' ? 'active' : ''}`}
-          >
-            <Send size={16} />
-            <span>Transfers & Payees</span>
-          </button>
-          <button
-            onClick={() => setActiveTab('bills')}
-            className={`bank-tab-btn ${activeTab === 'bills' ? 'active' : ''}`}
-          >
-            <Receipt size={16} />
-            <span>Pay Bills</span>
-          </button>
-          <button
-            onClick={() => setActiveTab('vaults')}
-            className={`bank-tab-btn ${activeTab === 'vaults' ? 'active' : ''}`}
-          >
-            <PiggyBank size={16} />
-            <span>Savings Vaults</span>
-          </button>
-          <button
-            onClick={() => setActiveTab('analytics')}
-            className={`bank-tab-btn ${activeTab === 'analytics' ? 'active' : ''}`}
-          >
-            <PieChart size={16} />
-            <span>Analytics & Statements</span>
-          </button>
-          <button
-            onClick={() => setActiveTab('security')}
-            className={`bank-tab-btn ${activeTab === 'security' ? 'active' : ''}`}
-          >
-            <Lock size={16} />
-            <span>Security & PIN</span>
-          </button>
-          <button
-            onClick={() => setActiveTab('profile')}
-            className={`bank-tab-btn ${activeTab === 'profile' ? 'active' : ''}`}
-          >
-            <UserCheck size={16} />
-            <span>Profile & KYC</span>
-          </button>
+          {[
+            { id: 'overview', label: 'Overview', icon: Building, color: '#38bdf8' },
+            { id: 'cards', label: 'Cards', icon: CreditCard, color: '#a78bfa' },
+            { id: 'transfers', label: 'Transfers', icon: Send, color: '#34d399' },
+            { id: 'bills', label: 'Pay Bills', icon: Receipt, color: '#fb923c' },
+            { id: 'vaults', label: 'Vaults', icon: PiggyBank, color: '#f472b6' },
+            { id: 'analytics', label: 'Statements', icon: PieChart, color: '#38bdf8' },
+            { id: 'security', label: 'Security', icon: Lock, color: '#facc15' },
+            { id: 'profile', label: 'Profile', icon: UserCheck, color: '#60a5fa' },
+          ].map((item) => {
+            const Icon = item.icon;
+            const isActive = activeTab === item.id;
+            return (
+              <button
+                key={item.id}
+                onClick={() => setActiveTab(item.id as any)}
+                style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '8px',
+                  padding: '12px 6px',
+                  borderRadius: '12px',
+                  border: isActive ? `1px solid ${item.color}` : '1px solid #1a1a24',
+                  background: isActive
+                    ? 'linear-gradient(180deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.02) 100%)'
+                    : '#13131a',
+                  boxShadow: isActive ? `0 0 16px ${item.color}33, inset 0 1px 0 rgba(255, 255, 255, 0.1)` : 'none',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
+                  position: 'relative',
+                }}
+                onMouseEnter={(e) => {
+                  if (!isActive) {
+                    e.currentTarget.style.backgroundColor = '#181822';
+                    e.currentTarget.style.borderColor = '#2d2d3c';
+                    e.currentTarget.style.transform = 'translateY(-2px)';
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (!isActive) {
+                    e.currentTarget.style.backgroundColor = '#13131a';
+                    e.currentTarget.style.borderColor = '#1a1a24';
+                    e.currentTarget.style.transform = 'translateY(0)';
+                  }
+                }}
+              >
+                {/* Icon Squircle Badge */}
+                <div
+                  style={{
+                    width: '40px',
+                    height: '40px',
+                    borderRadius: '10px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    background: isActive
+                      ? `linear-gradient(135deg, ${item.color} 0%, ${item.color}bb 100%)`
+                      : 'rgba(255, 255, 255, 0.04)',
+                    color: isActive ? '#000000' : item.color,
+                    boxShadow: isActive ? `0 4px 14px ${item.color}66` : 'none',
+                    transition: 'all 0.2s ease',
+                  }}
+                >
+                  <Icon size={19} strokeWidth={isActive ? 2.5 : 2} />
+                </div>
+
+                {/* Label Below */}
+                <span
+                  style={{
+                    fontSize: '0.78rem',
+                    fontWeight: isActive ? 700 : 500,
+                    color: isActive ? '#ffffff' : '#a1a1aa',
+                    letterSpacing: '0.2px',
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  {item.label}
+                </span>
+
+                {/* Active Indicator Dot */}
+                {isActive && (
+                  <div
+                    style={{
+                      position: 'absolute',
+                      bottom: '4px',
+                      width: '16px',
+                      height: '2.5px',
+                      borderRadius: '2px',
+                      backgroundColor: item.color,
+                      boxShadow: `0 0 8px ${item.color}`,
+                    }}
+                  />
+                )}
+              </button>
+            );
+          })}
         </div>
+      )}
 
         {/* ========================================================= */}
         {/* TAB 1: ACCOUNTS & OVERVIEW */}
@@ -1416,7 +1628,29 @@ export default function DashboardPage() {
         {/* TAB 2: CARDS (VIRTUAL & PHYSICAL DEBIT CARD) */}
         {/* ========================================================= */}
         {activeTab === 'cards' && (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: '28px' }}>
+          <div>
+            {/* Cards Header & Back Navigation for Mobile/Desktop */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '18px' }}>
+              <button
+                type="button"
+                onClick={() => setActiveTab('overview')}
+                className="btn-secondary"
+                style={{
+                  padding: '7px 14px',
+                  fontSize: '0.82rem',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  borderRadius: '10px',
+                }}
+              >
+                <ArrowLeft size={16} />
+                <span>Back to Overview</span>
+              </button>
+              <span style={{ fontSize: '0.8rem', color: '#a1a1aa' }}>Zoorich Black Debit Card</span>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: '28px' }}>
             {/* Left: 3D Realistic Debit Card */}
             <div>
               <div
@@ -1696,7 +1930,8 @@ export default function DashboardPage() {
               </div>
             </div>
           </div>
-        )}
+        </div>
+      )}
 
         {/* ========================================================= */}
         {/* TAB 3: TRANSFERS & SAVED PAYEES */}
@@ -2014,7 +2249,7 @@ export default function DashboardPage() {
                   {[
                     { key: 'electricity', label: 'Electricity', icon: Zap, biller: 'Swissgrid & Axpo Power' },
                     { key: 'internet', label: 'Fiber Net', icon: Wifi, biller: 'Swisscom Fiber 10G' },
-                    { key: 'water', label: 'Water Utility', icon: Droplets, biller: 'Zurich Water Authority' },
+                    { key: 'water', label: 'Water Utility', icon: Droplets, biller: 'Zoorich Water Authority' },
                     { key: 'mobile', label: '5G Mobile', icon: Smartphone, biller: 'Sunrise Swiss Mobile' },
                     { key: 'creditCard', label: 'Credit Card', icon: CreditCard, biller: 'Swiss Gold Mastercard' },
                   ].map((cat) => {
@@ -2614,7 +2849,7 @@ export default function DashboardPage() {
                   <CheckCircle2 size={36} color="#10b981" style={{ margin: '0 auto 10px' }} />
                   <div style={{ fontWeight: 800, color: '#ffffff', fontSize: '1.1rem' }}>2FA is Active & Protected</div>
                   <p style={{ fontSize: '0.82rem', color: '#a1a1aa', marginTop: '4px' }}>
-                    Your Zurich Bank account requires a 6-digit TOTP code during sensitive access.
+                    Your Zoorich Bank account requires a 6-digit TOTP code during sensitive access.
                   </p>
                 </div>
               ) : twoFactorData ? (
@@ -2998,7 +3233,7 @@ export default function DashboardPage() {
                       type="text"
                       disabled
                       className="input-field"
-                      value="Zurich Canton, Switzerland • Global Private Vault"
+                      value="Zoorich Canton, Switzerland • Global Private Vault"
                       style={{ backgroundColor: '#141419', color: '#a1a1aa', cursor: 'not-allowed' }}
                     />
                   </div>
@@ -3973,28 +4208,20 @@ export default function DashboardPage() {
         </div>
       )}
       {/* Mobile App Mode Bottom Navigation Bar */}
-      <nav className="mobile-app-bottom-bar" aria-label="Mobile Navigation">
+      <nav className={`mobile-app-bottom-bar ${appModeSimulated ? 'is-simulated' : ''}`} aria-label="Mobile Navigation">
         <button
           onClick={() => setActiveTab('overview')}
           className={`mobile-nav-item ${activeTab === 'overview' ? 'active' : ''}`}
         >
-          <Building size={19} />
+          <Building size={18} />
           <span>Home</span>
-        </button>
-
-        <button
-          onClick={() => setActiveTab('cards')}
-          className={`mobile-nav-item ${activeTab === 'cards' ? 'active' : ''}`}
-        >
-          <CreditCard size={19} />
-          <span>Cards</span>
         </button>
 
         <button
           onClick={() => setActiveTab('transfers')}
           className={`mobile-nav-item ${activeTab === 'transfers' ? 'active' : ''}`}
         >
-          <Send size={19} />
+          <Send size={18} />
           <span>Pay</span>
         </button>
 
@@ -4002,7 +4229,7 @@ export default function DashboardPage() {
           onClick={() => setActiveTab('bills')}
           className={`mobile-nav-item ${activeTab === 'bills' ? 'active' : ''}`}
         >
-          <Receipt size={19} />
+          <Receipt size={18} />
           <span>Bills</span>
         </button>
 
@@ -4010,24 +4237,16 @@ export default function DashboardPage() {
           onClick={() => setActiveTab('vaults')}
           className={`mobile-nav-item ${activeTab === 'vaults' ? 'active' : ''}`}
         >
-          <PiggyBank size={19} />
+          <PiggyBank size={18} />
           <span>Vaults</span>
         </button>
 
         <button
-          onClick={() => setActiveTab('security')}
-          className={`mobile-nav-item ${activeTab === 'security' ? 'active' : ''}`}
+          onClick={() => setActiveTab('analytics')}
+          className={`mobile-nav-item ${activeTab === 'analytics' ? 'active' : ''}`}
         >
-          <Lock size={19} />
-          <span>Security</span>
-        </button>
-
-        <button
-          onClick={() => setActiveTab('profile')}
-          className={`mobile-nav-item ${activeTab === 'profile' ? 'active' : ''}`}
-        >
-          <UserCheck size={19} />
-          <span>Profile</span>
+          <PieChart size={18} />
+          <span>Stats</span>
         </button>
       </nav>
 
